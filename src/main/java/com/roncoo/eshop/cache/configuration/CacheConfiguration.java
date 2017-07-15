@@ -8,9 +8,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 
 /**
- * Component: 缓存配置管理类
- * Description:
- * Date: 17/7/10
+ * Component: 缓存配置管理类 Description: Date: 17/7/10
  *
  * @author yue.zhang
  */
@@ -18,17 +16,17 @@ import org.springframework.core.io.ClassPathResource;
 @EnableCaching
 public class CacheConfiguration {
 
-    @Bean
-    public EhCacheManagerFactoryBean ehCacheManagerFactoryBean(){
-        EhCacheManagerFactoryBean ehCacheManagerFactoryBean = new EhCacheManagerFactoryBean();
-        ehCacheManagerFactoryBean.setConfigLocation(new ClassPathResource("ehcache.xml"));
-        ehCacheManagerFactoryBean.setShared(true);
-        return ehCacheManagerFactoryBean;
-    }
+	@Bean
+	public EhCacheManagerFactoryBean ehCacheManagerFactoryBean() {
+		EhCacheManagerFactoryBean ehCacheManagerFactoryBean = new EhCacheManagerFactoryBean();
+		ehCacheManagerFactoryBean.setConfigLocation(new ClassPathResource("ehcache.xml"));
+		ehCacheManagerFactoryBean.setShared(true);
+		return ehCacheManagerFactoryBean;
+	}
 
-    @Bean
-    public EhCacheCacheManager ehCacheCacheManager(EhCacheManagerFactoryBean ehCacheManagerFactoryBean){
-        return new EhCacheCacheManager(ehCacheManagerFactoryBean.getObject());
-    }
+	@Bean
+	public EhCacheCacheManager ehCacheCacheManager(EhCacheManagerFactoryBean ehCacheManagerFactoryBean) {
+		return new EhCacheCacheManager(ehCacheManagerFactoryBean.getObject());
+	}
 
 }
