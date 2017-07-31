@@ -1,12 +1,18 @@
 package com.roncoo.eshop.cache.kafka;
 
 import com.alibaba.fastjson.JSONObject;
+import com.roncoo.eshop.cache.data.DataResource;
 import com.roncoo.eshop.cache.model.ProductInfo;
 import com.roncoo.eshop.cache.model.ShopInfo;
 import com.roncoo.eshop.cache.service.CacheService;
 import com.roncoo.eshop.cache.spring.SpringContext;
+import com.roncoo.eshop.cache.zk.ZookeeperSession;
 import kafka.consumer.ConsumerIterator;
 import kafka.consumer.KafkaStream;
+
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 /**
  * Component: kafka消息处理线程 Description: Date: 17/7/15
@@ -17,6 +23,8 @@ public class KafkaMessageProcessor implements Runnable {
 
 	private KafkaStream kafkaStream;
 	private CacheService cacheService;
+
+	private static SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
 	public KafkaMessageProcessor(KafkaStream kafkaStream) {
 		this.kafkaStream = kafkaStream;
@@ -57,13 +65,39 @@ public class KafkaMessageProcessor implements Runnable {
 		// 调用商品信息服务的接口
 		// 直接用注释模拟：getProductInfo?productId=1，传递过去
 		// 商品信息服务，一般来说就会去查询数据库，去获取productId=1的商品信息，然后返回回来
-		String productInfoJSON = "{\"id\": 1, \"name\": \"iphone7手机\", \"price\": 5599, \"pictureList\":\"a.jpg,b.jpg\", \"specification\": \"iphone7的规格\", \"service\": \"iphone7的售后服务\", \"color\": \"红色,白色,黑色\", \"size\": \"5.5\", \"shopId\": 1}";
-
-		ProductInfo productInfo = JSONObject.parseObject(productInfoJSON, ProductInfo.class);
-        cacheService.saveProductInfo2LocalCache(productInfo);
+		ProductInfo productInfo = DataResource.getProductInfo(productId,"2017-01-01 12:00:00");
+		cacheService.saveProductInfo2LocalCache(productInfo);
         System.out.println("==========================获取刚保存到本地缓存的商品信息："+ cacheService.getProductInfoFromLocalCache(productInfo.getId()));
 
+
+        // 在将数据直接写入redis缓存之前，应该先获取一个zk的分布式锁
+		ZookeeperSession zkSession = ZookeeperSession.getInstance();
+		zkSession.acquireDistributedLock(productId); // 加锁
+
+		// 获取到了锁
+		// 先从redis中获取数据
+		ProductInfo existedProductInfo = cacheService.getProductInfoFromRedisCache(productId);
+		if(existedProductInfo != null){
+			// 比较当前数据的时间版本比已有数据的时间版本是新还是旧
+			try {
+				Date date = sdf.parse(productInfo.getModifiedTime());
+				Date existedDate = sdf.parse(existedProductInfo.getModifiedTime());
+				if(date.before(existedDate)){
+					System.out.println("current date=" + productInfo.getModifiedTime() + " is before existed date=[" + existedProductInfo.getModifiedTime() + "]");
+					zkSession.releaseDistributeLock(productId); // 释放锁
+					return;
+				}else{
+					System.out.println("current date=" + productInfo.getModifiedTime() + " is after existed date=[" + existedProductInfo.getModifiedTime() + "]");
+				}
+			} catch (ParseException e) {
+				e.printStackTrace();
+			}
+
+		}else{
+			System.out.println("existed product info is null ......");
+		}
         cacheService.saveProductInfo2RedisCache(productInfo);
+        zkSession.releaseDistributeLock(productId); // 释放锁
 	}
 
     /**
@@ -74,9 +108,7 @@ public class KafkaMessageProcessor implements Runnable {
 	    // 提取出店铺id
         Long shopId = messageJSONObject.getLong("shopId");
         // 根据shopId查库或者调接口获取店铺信息数据，这里就模拟写死了数据
-        String shopInfoJSON = "{\"id\": 1, \"name\": \"小王的手机店\", \"level\": 5, \"goodCommentRate\":0.99}";
-
-        ShopInfo shopInfo = JSONObject.parseObject(shopInfoJSON,ShopInfo.class);
+		ShopInfo shopInfo = DataResource.getShopInfo(shopId);
         cacheService.saveShopInfo2LocalCache(shopInfo);
 		System.out.println("==========================获取刚保存到本地缓存的店铺信息："+ cacheService.getShopInfoFromLocalCache(shopInfo.getId()));
         cacheService.saveShopInfo2RedisCache(shopInfo);

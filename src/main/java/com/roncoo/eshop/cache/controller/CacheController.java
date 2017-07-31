@@ -1,7 +1,9 @@
 package com.roncoo.eshop.cache.controller;
 
+import com.roncoo.eshop.cache.data.DataResource;
 import com.roncoo.eshop.cache.model.ProductInfo;
 import com.roncoo.eshop.cache.model.ShopInfo;
+import com.roncoo.eshop.cache.rebuild.RebuildCacheQueue;
 import com.roncoo.eshop.cache.service.CacheService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -46,7 +48,11 @@ public class CacheController {
 		}
 
 		if(productInfo == null){
-			// TODO 从数据库中获取
+			// 从数据库中获取，这里就模拟从数据库拿到了数据
+			productInfo = DataResource.getProductInfo(2L,"2017-01-01 12:01:00");
+			// 将数据推送到一个内存队列中
+			RebuildCacheQueue rebuildCacheQueue = RebuildCacheQueue.getInstacne();
+			rebuildCacheQueue.putProductInfo(productInfo);
 		}
 
 		return productInfo;
@@ -66,7 +72,9 @@ public class CacheController {
 		}
 
 		if(shopInfo == null){
-			// TODO 从数据库中获取
+			// 从数据库中获取，这里就模拟从数据库拿到了数据
+
+
 		}
 
 		return shopInfo;

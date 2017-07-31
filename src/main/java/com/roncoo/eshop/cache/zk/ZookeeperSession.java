@@ -59,6 +59,10 @@ public class ZookeeperSession {
         }
     }
 
+    public static void init(){
+        ZookeeperSession.getInstance();
+    }
+
     /**
      * 获取单例
      * @return
@@ -66,6 +70,8 @@ public class ZookeeperSession {
     public static ZookeeperSession getInstance(){
         return Singleton.getInstance();
     }
+
+
 
     /**
      * 获取分布式锁
