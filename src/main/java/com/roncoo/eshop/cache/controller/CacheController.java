@@ -49,7 +49,7 @@ public class CacheController {
 
 		if(productInfo == null){
 			// 从数据库中获取，这里就模拟从数据库拿到了数据
-			productInfo = DataResource.getProductInfo(2L,"2017-01-01 12:01:00");
+			productInfo = DataResource.getProductInfo(productId,"2017-01-01 12:01:00");
 			// 将数据推送到一个内存队列中
 			RebuildCacheQueue rebuildCacheQueue = RebuildCacheQueue.getInstacne();
 			rebuildCacheQueue.putProductInfo(productInfo);

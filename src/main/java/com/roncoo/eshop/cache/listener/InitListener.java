@@ -1,6 +1,7 @@
 package com.roncoo.eshop.cache.listener;
 
 import com.roncoo.eshop.cache.kafka.KafkaConsumer;
+import com.roncoo.eshop.cache.rebuild.RebuildCacheThread;
 import com.roncoo.eshop.cache.spring.SpringContext;
 import com.roncoo.eshop.cache.zk.ZookeeperSession;
 import org.springframework.context.ApplicationContext;
@@ -26,8 +27,14 @@ public class InitListener implements ServletContextListener{
         ServletContext sc = sce.getServletContext();
         ApplicationContext context = WebApplicationContextUtils.getWebApplicationContext(sc);
         SpringContext.setApplicationContext(context);
-        ZookeeperSession.init(); // 初始化zookeeper
+
+        // kafka 消费线程
         new Thread(new KafkaConsumer("cache-message")).start();
+        // 重建cache线程
+        new Thread(new RebuildCacheThread()).start();
+
+        // 初始化zk
+        ZookeeperSession.init();
     }
 
     @Override

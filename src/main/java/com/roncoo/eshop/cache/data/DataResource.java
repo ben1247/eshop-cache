@@ -17,7 +17,7 @@ public class DataResource {
 
         Long id = ( productId != null ) ? productId : 1;
 
-        String productInfoJSON = "{\"id\": "+id+", \"name\": \"iphone7手机\", \"price\": 5599, \"pictureList\":\"a.jpg,b.jpg\", \"specification\": \"iphone7的规格\", \"service\": \"iphone7的售后服务\", \"color\": \"红色,白色,黑色\", \"size\": \"5.5\", \"shopId\": 1, \"modified_time\": \""+modifiedTime+"\"}";
+        String productInfoJSON = "{\"id\": "+id+", \"name\": \"iphone7手机\", \"price\": 5599, \"pictureList\":\"a.jpg,b.jpg\", \"specification\": \"iphone7的规格\", \"service\": \"iphone7的售后服务\", \"color\": \"红色,白色,黑色\", \"size\": \"5.5\", \"shopId\": 1, \"modifiedTime\": \""+modifiedTime+"\"}";
 
         ProductInfo productInfo = JSONObject.parseObject(productInfoJSON, ProductInfo.class);
 

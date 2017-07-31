@@ -35,21 +35,28 @@ public class KafkaMessageProcessor implements Runnable {
 	public void run() {
 		ConsumerIterator<byte[], byte[]> it = kafkaStream.iterator();
 		while (it.hasNext()) {
-			String message = new String(it.next().message());
-			System.out.println("==========================收到了kafka消息：" + message);
 
-			// 首先将message转换成json对象
-			JSONObject messageJSONObject = JSONObject.parseObject(message);
+			try {
 
-			// 从这里提取出消息对应的服务的标识
-			String serviceId = messageJSONObject.getString("serviceId");
+				String message = new String(it.next().message());
+				System.out.println("==========================收到了kafka消息：" + message);
 
-			// 如果是商品信息服务
-			if ("productInfoService".equals(serviceId)) {
-				processProductInfoChangeMessage(messageJSONObject);
-			} else if ("shopInfoService".equals(serviceId)){
-                processShopInfoChangeMessage(messageJSONObject);
-            }
+				// 首先将message转换成json对象
+				JSONObject messageJSONObject = JSONObject.parseObject(message);
+
+				// 从这里提取出消息对应的服务的标识
+				String serviceId = messageJSONObject.getString("serviceId");
+
+				// 如果是商品信息服务
+				if ("productInfoService".equals(serviceId)) {
+					processProductInfoChangeMessage(messageJSONObject);
+				} else if ("shopInfoService".equals(serviceId)){
+					processShopInfoChangeMessage(messageJSONObject);
+				}
+			}catch (Exception e){
+				System.out.println("收到一条不合理的消息：" + e.getMessage());
+			}
+
 		}
 	}
 
@@ -59,45 +66,64 @@ public class KafkaMessageProcessor implements Runnable {
 	 * @param messageJSONObject
 	 */
 	private void processProductInfoChangeMessage(JSONObject messageJSONObject) {
+
 		// 提取出商品id
 		Long productId = messageJSONObject.getLong("productId");
 
-		// 调用商品信息服务的接口
-		// 直接用注释模拟：getProductInfo?productId=1，传递过去
-		// 商品信息服务，一般来说就会去查询数据库，去获取productId=1的商品信息，然后返回回来
-		ProductInfo productInfo = DataResource.getProductInfo(productId,"2017-01-01 12:00:00");
-		cacheService.saveProductInfo2LocalCache(productInfo);
-        System.out.println("==========================获取刚保存到本地缓存的商品信息："+ cacheService.getProductInfoFromLocalCache(productInfo.getId()));
-
-
-        // 在将数据直接写入redis缓存之前，应该先获取一个zk的分布式锁
+		// 在将数据直接写入redis缓存之前，应该先获取一个zk的分布式锁
 		ZookeeperSession zkSession = ZookeeperSession.getInstance();
-		zkSession.acquireDistributedLock(productId); // 加锁
 
-		// 获取到了锁
-		// 先从redis中获取数据
-		ProductInfo existedProductInfo = cacheService.getProductInfoFromRedisCache(productId);
-		if(existedProductInfo != null){
-			// 比较当前数据的时间版本比已有数据的时间版本是新还是旧
-			try {
-				Date date = sdf.parse(productInfo.getModifiedTime());
-				Date existedDate = sdf.parse(existedProductInfo.getModifiedTime());
-				if(date.before(existedDate)){
-					System.out.println("current date=" + productInfo.getModifiedTime() + " is before existed date=[" + existedProductInfo.getModifiedTime() + "]");
-					zkSession.releaseDistributeLock(productId); // 释放锁
-					return;
-				}else{
-					System.out.println("current date=" + productInfo.getModifiedTime() + " is after existed date=[" + existedProductInfo.getModifiedTime() + "]");
+		try {
+			// 调用商品信息服务的接口
+			// 直接用注释模拟：getProductInfo?productId=1，传递过去
+			// 商品信息服务，一般来说就会去查询数据库，去获取productId=1的商品信息，然后返回回来
+			ProductInfo productInfo = DataResource.getProductInfo(productId,"2017-01-01 12:00:00");
+
+			// 加锁
+			zkSession.acquireDistributedLock(productId);
+
+			// 获取到了锁
+			// 先从redis中获取数据
+			ProductInfo existedProductInfo = cacheService.getProductInfoFromRedisCache(productId);
+			if(existedProductInfo != null){
+				// 比较当前数据的时间版本比已有数据的时间版本是新还是旧
+				try {
+					Date date = sdf.parse(productInfo.getModifiedTime());
+					Date existedDate = sdf.parse(existedProductInfo.getModifiedTime());
+					if(date.before(existedDate)){
+						System.out.println("current date=" + productInfo.getModifiedTime() + " is before existed date=[" + existedProductInfo.getModifiedTime() + "]");
+						zkSession.releaseDistributeLock(productId); // 释放锁
+						return;
+					}else{
+						System.out.println("current date=" + productInfo.getModifiedTime() + " is after existed date=[" + existedProductInfo.getModifiedTime() + "]");
+					}
+				} catch (ParseException e) {
+					e.printStackTrace();
 				}
-			} catch (ParseException e) {
+
+			}else{
+				System.out.println("existed product info is null ......");
+			}
+
+
+			try {
+				// 假设业务代码需要处理10秒
+				Thread.sleep(10 * 1000);
+			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
 
-		}else{
-			System.out.println("existed product info is null ......");
+			cacheService.saveProductInfo2LocalCache(productInfo);
+			cacheService.saveProductInfo2RedisCache(productInfo);
+
+			// 释放分布式锁
+			zkSession.releaseDistributeLock(productId);
+		}catch (Exception e){
+			zkSession.releaseDistributeLock(productId);
+			e.printStackTrace();
 		}
-        cacheService.saveProductInfo2RedisCache(productInfo);
-        zkSession.releaseDistributeLock(productId); // 释放锁
+
+
 	}
 
     /**

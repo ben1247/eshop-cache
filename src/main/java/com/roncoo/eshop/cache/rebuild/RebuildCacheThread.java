@@ -53,8 +53,12 @@ public class RebuildCacheThread implements Runnable{
             }else{
                 System.out.println("existed product info is null ......");
             }
+
+            cacheService.saveProductInfo2LocalCache(productInfo);
             cacheService.saveProductInfo2RedisCache(productInfo);
-            zkSession.releaseDistributeLock(productInfo.getId()); // 释放锁
+
+            // 释放分布式锁
+            zkSession.releaseDistributeLock(productInfo.getId());
         }
     }
 }
