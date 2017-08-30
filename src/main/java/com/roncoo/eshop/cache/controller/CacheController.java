@@ -3,6 +3,7 @@ package com.roncoo.eshop.cache.controller;
 import com.roncoo.eshop.cache.data.DataResource;
 import com.roncoo.eshop.cache.model.ProductInfo;
 import com.roncoo.eshop.cache.model.ShopInfo;
+import com.roncoo.eshop.cache.prewarm.CachePrewarmThread;
 import com.roncoo.eshop.cache.rebuild.RebuildCacheQueue;
 import com.roncoo.eshop.cache.service.CacheService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -78,5 +79,14 @@ public class CacheController {
 		}
 
 		return shopInfo;
+	}
+
+	/**
+	 * 商品预热
+	 */
+	@RequestMapping("/prewarmCache")
+	@ResponseBody
+	public void prewarmCache() {
+		new CachePrewarmThread().start();
 	}
 }

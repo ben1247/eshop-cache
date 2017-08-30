@@ -1,6 +1,7 @@
 package com.roncoo.eshop.cache.zk;
 
 import org.apache.zookeeper.*;
+import org.apache.zookeeper.data.Stat;
 
 import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
@@ -103,6 +104,48 @@ public class ZookeeperSession {
     }
 
     /**
+     * 获取分布式锁
+     * @param path
+     */
+    public void acquireDistributedLock(String path){
+        try {
+            zooKeeper.create(path,"".getBytes(), ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL);
+            System.out.println("success to acquire lock for path=" + path);
+        } catch (Exception e) {
+            // 如果那个商品对应的锁的node已经存在了，就是已经被人加锁了，那么这里就会报错
+            int count = 0;
+            while (true){
+                try {
+//                    Thread.sleep(20); // 生产环境建议使用20
+                    Thread.sleep(1000); // TODO 测试环境使用1000
+                    zooKeeper.create(path,"".getBytes(), ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL);
+                } catch (Exception e1) {
+                    count++;
+                    System.out.println("the " + count + " times try to acquire lock for path=" + path + "...");
+                    continue;
+                }
+                System.out.println("success to acquire lock for path=" + path + "] after " + count + " times try...");
+                break;
+            }
+        }
+    }
+
+    /**
+     * 获取分布式锁，如果失败则快速结束
+     * @param path
+     */
+    public boolean acquireFastFailedDistributedLock(String path){
+        try {
+            zooKeeper.create(path,"".getBytes(), ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL);
+            System.out.println("success to acquire lock for " + path);
+            return true;
+        } catch (Exception e) {
+            System.out.println("fail to acquire lock for " + path);
+        }
+        return false;
+    }
+
+    /**
      * 释放调一个分布式锁
      * @param productId
      */
@@ -111,6 +154,36 @@ public class ZookeeperSession {
         try {
             zooKeeper.delete(path,-1);
             System.out.println("release the lock for product[id=" + productId + "]...");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * 释放调一个分布式锁
+     * @param path
+     */
+    public void releaseDistributeLock(String path){
+        try {
+            zooKeeper.delete(path,-1);
+            System.out.println("release the lock for " + path + "...");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public String getNodeData(String path){
+        try {
+            return new String(zooKeeper.getData(path,false,new Stat()));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "";
+    }
+
+    public void setNodeData(String path , String data){
+        try {
+            zooKeeper.setData(path,data.getBytes(),-1);
         } catch (Exception e) {
             e.printStackTrace();
         }
